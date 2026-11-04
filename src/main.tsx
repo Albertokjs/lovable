@@ -71,12 +71,14 @@ function safeRead(key: string) {
   }
 }
 function App() {
+  type AiStatus = "checking" | "ready" | "needs-key" | "offline";
   const [profiles, setProfiles] = useState(readProfiles);
   const [active, setActive] = useState(() => safeRead("orbital-active"));
   const p = profiles.find((p) => p.id === active) || profiles[0];
   const [panel, setPanel] = useState("");
   const dialogRef = useRef<HTMLElement>(null);
   const [ai, setAi] = useState(false);
+  const [aiStatus, setAiStatus] = useState<AiStatus>("checking");
   const [address, setAddress] = useState("");
   const [query, setQuery] = useState("");
   const [toast, setToast] = useState("");
@@ -148,6 +150,20 @@ function App() {
   function notify(text: string) {
     setToast(text);
   }
+  async function checkAiConnection() {
+    setAiStatus("checking");
+    try {
+      const response = await fetch("/api/health");
+      if (!response.ok) throw new Error("API health check failed");
+      const data = await response.json();
+      setAiStatus(data.aiConfigured ? "ready" : "needs-key");
+    } catch {
+      setAiStatus("offline");
+    }
+  }
+  useEffect(() => {
+    void checkAiConnection();
+  }, []);
   useEffect(() => {
     try {
       localStorage.setItem("orbital-profiles", JSON.stringify(profiles));
@@ -257,7 +273,7 @@ function App() {
     notify("Workspace backup downloaded");
   }
   async function sendMessage(text = chat) {
-    if (!text.trim() || busy) return;
+    if (!text.trim() || busy || aiStatus !== "ready") return;
     const next = [...messages, { role: "user", content: text }];
     setMessages(next);
     setChat("");
@@ -1668,6 +1684,33 @@ function App() {
             </div>
             {button(X, "Close assistant", () => setAi(false))}
           </div>
+          {aiStatus !== "ready" && (
+            <div className={`ai-setup-notice ${aiStatus}`} role="status">
+              <div>
+                <strong>
+                  {aiStatus === "checking"
+                    ? "Checking AI connection…"
+                    : aiStatus === "needs-key"
+                      ? "Orbital AI needs setup"
+                      : "Orbital’s API server isn’t reachable"}
+                </strong>
+                <p>
+                  {aiStatus === "checking"
+                    ? "Connecting to the local AI server."
+                    : aiStatus === "needs-key"
+                      ? "Add OPENAI_API_KEY to .env and restart npm run dev. Chat stays disabled until setup is complete."
+                      : "Run npm run dev to start the app and API server together."}
+                </p>
+              </div>
+              <button
+                className="small-button"
+                disabled={aiStatus === "checking"}
+                onClick={() => void checkAiConnection()}
+              >
+                {aiStatus === "checking" ? "Checking…" : "Check connection"}
+              </button>
+            </div>
+          )}
           <div className="chat-messages">
             {!messages.length && (
               <div className="ai-welcome">
@@ -1690,7 +1733,11 @@ function App() {
                   "Explain black holes simply",
                   "Suggest creative research resources",
                 ].map((s) => (
-                  <button key={s} onClick={() => sendMessage(s)}>
+                  <button
+                    key={s}
+                    disabled={aiStatus !== "ready"}
+                    onClick={() => sendMessage(s)}
+                  >
                     {s}
                     <ArrowUpRight size={14} />
                   </button>
@@ -1710,6 +1757,7 @@ function App() {
               type="checkbox"
               checked={context}
               onChange={(e) => setContext(e.target.checked)}
+              disabled={aiStatus !== "ready"}
             />{" "}
             Share workspace name and open tab URLs
           </label>
@@ -1725,8 +1773,12 @@ function App() {
               placeholder="A question, a thought, anything…"
               value={chat}
               onChange={(e) => setChat(e.target.value)}
+              disabled={aiStatus !== "ready"}
             />
-            <button disabled={busy || !chat.trim()} aria-label="Send message">
+            <button
+              disabled={busy || !chat.trim() || aiStatus !== "ready"}
+              aria-label="Send message"
+            >
               <ArrowRight size={18} />
             </button>
           </form>
