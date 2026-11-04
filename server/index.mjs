@@ -3,6 +3,7 @@ import helmet from "helmet";
 import { rateLimit } from "express-rate-limit";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { providerError } from "./provider-error.mjs";
 const app = express();
 app.disable("x-powered-by");
 app.use(
@@ -106,13 +107,11 @@ app.post(
           signal: AbortSignal.timeout(30000),
         },
       );
-      if (!response.ok)
-        return res
-          .status(502)
-          .json({
-            error:
-              "The AI provider could not complete this request. Check the server configuration and try again.",
-          });
+      if (!response.ok) {
+        const body = await response.json().catch(() => null);
+        const failure = providerError(response.status, body);
+        return res.status(failure.status).json({ error: failure.error });
+      }
       const result = await response.json();
       const message = result.choices?.[0]?.message?.content;
       if (typeof message !== "string") throw Error("Invalid provider response");
@@ -140,4 +139,3 @@ app.use((err, req, res, next) => {
 app.listen(Number(process.env.PORT) || 3001, "0.0.0.0", () =>
   console.log("Orbital server ready on port " + (process.env.PORT || 3001)),
 );
-
