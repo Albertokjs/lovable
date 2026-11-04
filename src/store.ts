@@ -103,8 +103,12 @@ export function readProfiles(): Profile[] {
         ...p,
         customWidgets: Array.isArray(p.customWidgets)
           ? p.customWidgets.filter(
-              (widget) =>
+              (widget: unknown) =>
                 widget &&
+                typeof widget === "object" &&
+                "id" in widget &&
+                "title" in widget &&
+                "url" in widget &&
                 typeof widget.id === "string" &&
                 typeof widget.title === "string" &&
                 typeof widget.url === "string" &&
@@ -152,4 +156,3 @@ export function embeddedAddress(value: string) {
   } catch {}
   return value;
 }
-

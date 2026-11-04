@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
 import {
   ArrowLeft,
@@ -75,6 +75,40 @@ function App() {
   const [profiles, setProfiles] = useState(readProfiles);
   const [active, setActive] = useState(() => safeRead("orbital-active"));
   const p = profiles.find((p) => p.id === active) || profiles[0];
+  const mainRef = useRef<HTMLElement>(null);
+  const previousWorkspace = useRef(p.id);
+  useLayoutEffect(() => {
+    const changed = previousWorkspace.current !== p.id;
+    previousWorkspace.current = p.id;
+    const main = mainRef.current;
+    const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
+    if (!changed || !main || !p.motion || reducedMotion.matches) return;
+
+    // Restart cleanly on rapid switches without remounting widgets or iframes.
+    main.classList.remove("workspace-arriving");
+    void main.offsetWidth;
+    main.classList.add("workspace-arriving");
+    const animations = Array.from(
+      main.querySelectorAll<HTMLElement>(".dashboard-top, .dashboard > section, .web-viewer"),
+    ).map((element, index) => element.animate(
+      [
+        { opacity: 0, transform: "translateY(22px) scale(.98)" },
+        { opacity: 1, transform: "translateY(0) scale(1)" },
+      ],
+      { duration: 520, delay: Math.min(index * 65, 260), easing: "cubic-bezier(.16,1,.3,1)", fill: "backwards" },
+    ));
+    const stop = () => {
+      main.classList.remove("workspace-arriving");
+      animations.forEach((animation) => animation.cancel());
+    };
+    const timeout = window.setTimeout(stop, 900);
+    reducedMotion.addEventListener("change", stop);
+    return () => {
+      window.clearTimeout(timeout);
+      reducedMotion.removeEventListener("change", stop);
+      stop();
+    };
+  }, [p.id, p.motion]);
   const [panel, setPanel] = useState("");
   const dialogRef = useRef<HTMLElement>(null);
   const [ai, setAi] = useState(false);
@@ -548,7 +582,18 @@ function App() {
           </div>
         </div>
       </aside>
-      <main className="main">
+      <main className="main" ref={mainRef}>
+        <div className="workspace-warp" aria-hidden="true">
+          <div className="warp-glow" />
+          <div className="warp-ring" />
+          <div className="warp-ring warp-ring-outer" />
+          <div className="warp-trails">
+            {Array.from({ length: 12 }, (_, i) => (
+              <i key={i} style={{ "--ray": `${i * 30}deg` } as React.CSSProperties} />
+            ))}
+          </div>
+          <div className="warp-label"><Orbit size={18} /><span>{p.name}</span></div>
+        </div>
         <div
           className="cosmos"
           style={
@@ -1897,4 +1942,3 @@ createRoot(document.getElementById("root")!).render(
     <App />
   </React.StrictMode>,
 );
-
