@@ -63,6 +63,8 @@ import {
   type Tab,
 } from "./store";
 import "./styles.css";
+import { WorkspaceWidget } from "./WorkspaceWidget";
+import { dedicatedWidgets, readWidgetData, workspaceWidgets } from "./widget-data";
 function safeRead(key: string) {
   try {
     return localStorage.getItem(key) || "";
@@ -141,6 +143,40 @@ function App() {
   );
   const fileRef = useRef<HTMLInputElement>(null);
   const tab = p.tabs.find((t) => t.id === p.activeTab) || p.tabs[0];
+  useEffect(() => {
+    const main = mainRef.current;
+    const media = window.matchMedia("(prefers-reduced-motion: reduce)");
+    if (!main || !p.motion || media.matches || tab.url !== "orbital://newtab") return;
+    const targets = Array.from(main.querySelectorAll<HTMLElement>(".widget, .discovery, .dashboard-footer"));
+    const animations: Animation[] = [];
+    // Only animate content that starts below the viewport; visible content stays readable.
+    const observer = new IntersectionObserver(entries => {
+      entries.forEach(entry => {
+        if (!entry.isIntersecting) return;
+        const target = entry.target as HTMLElement;
+        target.classList.remove("orbit-waiting");
+        target.classList.add("orbit-revealed");
+        animations.push(target.animate([
+          { opacity: 0, transform: "translateY(32px) scale(.96)", filter: "blur(4px)" },
+          { opacity: 1, transform: "translateY(0) scale(1)", filter: "blur(0)" },
+        ], { duration: 700, easing: "cubic-bezier(.16,1,.3,1)" }));
+        observer.unobserve(target);
+      });
+    }, { threshold: 0.08 });
+    targets.forEach(target => {
+      if (target.getBoundingClientRect().top >= window.innerHeight) {
+        target.classList.add("orbit-waiting");
+        observer.observe(target);
+      }
+    });
+    const stop = () => {
+      observer.disconnect();
+      animations.forEach(animation => animation.cancel());
+      targets.forEach(target => target.classList.remove("orbit-waiting", "orbit-revealed"));
+    };
+    media.addEventListener("change", stop);
+    return () => { media.removeEventListener("change", stop); stop(); };
+  }, [p.id, p.motion, p.widgets.join(","), tab.url]);
   useEffect(() => {
     if (!panel) return;
     const previous = document.activeElement as HTMLElement | null;
@@ -754,7 +790,9 @@ function App() {
                       }
                     }}
                   >
-                    {id === "focus" ? (
+                    {dedicatedWidgets.some(widget => widget.id === id) ? (
+                      <WorkspaceWidget key={`${p.id}-${id}`} id={id} data={p.widgetData} onChange={widgetData => update({ widgetData })} />
+                    ) : id === "focus" ? (
                       <>
                         <div className="widget-heading">
                           <span>
@@ -1530,6 +1568,7 @@ function App() {
                     desc: widget.url,
                     custom: true,
                   })),
+                  ...dedicatedWidgets,
                 ].map(({ id, name, desc, custom }) => (
                   <div className="setting-row" key={id}>
                     <div>
@@ -1892,6 +1931,7 @@ function App() {
                         "focus",
                         "notes",
                         "activity",
+                        ...dedicatedWidgets.map(widget => widget.id),
                         ...customWidgets.map((widget) => widget.id),
                       ].includes(id),
                     )
@@ -1906,7 +1946,8 @@ function App() {
                   ? item.theme
                   : base.theme,
                 motion: !!item.motion,
-                widgets,
+                widgets: item.widgetVersion === 1 ? widgets : [...new Set([...workspaceWidgets(item.name, base.icon), ...widgets])],
+                widgetData: readWidgetData(item.widgetData),
                 customWidgets,
                 links: item.links.map((l) => ({ ...l, id: uid() })),
                 tabs: item.tabs.map((t) => ({ ...t, id: uid() })),

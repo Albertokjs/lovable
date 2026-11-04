@@ -1,3 +1,4 @@
+import { readWidgetData, workspaceWidgets, type WidgetData } from "./widget-data";
 export type Link = { id: string; name: string; url: string; color: string };
 export type Tab = { id: string; title: string; url: string };
 export type CustomWidget = { id: string; title: string; url: string };
@@ -15,6 +16,8 @@ export type Profile = {
   history: Tab[];
   widgets: string[];
   customWidgets: CustomWidget[];
+  widgetData: WidgetData;
+  widgetVersion: number;
   snapshots: { id: string; name: string; tabs: Tab[] }[];
 };
 export const uid = () => crypto.randomUUID();
@@ -48,7 +51,9 @@ export function makeProfile(name: string, icon = "planet"): Profile {
     tabs: [tab],
     activeTab: tab.id,
     history: [],
-    widgets: ["focus", "notes", "activity"],
+    widgets: [...workspaceWidgets(name, icon), "focus", "notes", "activity"],
+    widgetData: readWidgetData(null),
+    widgetVersion: 1,
     customWidgets: [],
     snapshots: [],
   };
@@ -101,6 +106,9 @@ export function readProfiles(): Profile[] {
     )
       return raw.map((p) => ({
         ...p,
+        widgets: p.widgetVersion === 1 ? p.widgets : [...new Set([...workspaceWidgets(p.name, p.icon), ...p.widgets])],
+        widgetVersion: 1,
+        widgetData: readWidgetData(p.widgetData),
         customWidgets: Array.isArray(p.customWidgets)
           ? p.customWidgets.filter(
               (widget: unknown) =>
