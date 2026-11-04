@@ -10,11 +10,9 @@ Node.js 22.9+ required (24 recommended).
 npm install
 cp .env.example .env
 npm run dev
-# In another terminal:
-npm run server
 ```
 
-Open http://localhost:5173. Add a server-side `OPENAI_API_KEY` to `.env` for real AI responses. Without a key, the assistant clearly reports that it is not connected; no synthetic AI answers are generated. `npm run build` typechecks and builds the production UI. `npm test` runs the browser interaction suite against a running Vite instance (install Chromium first: `npx playwright install chromium`).
+Open http://localhost:5173. `npm run dev` starts both Vite and the API server, so chat requests reach the backend during local development. Add a server-side `OPENAI_API_KEY` to `.env` to enable real AI responses. Without a key, the assistant explains that it is not connected; no synthetic AI answers are generated. `npm run build` typechecks and builds the production UI. `npm test` runs the browser interaction suite against a running Vite instance (install Chromium first: `npx playwright install chromium`).
 
 ## What's working
 

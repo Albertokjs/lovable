@@ -280,14 +280,17 @@ function App() {
       if (!res.ok) throw new Error(data.error || "Assistant unavailable");
       setMessages([...next, { role: "assistant", content: data.message }]);
     } catch (err) {
+      const message =
+        err instanceof TypeError && /fetch/i.test(err.message)
+          ? "The Orbital API server could not be reached. Restart the app with npm run dev and try again."
+          : err instanceof Error
+            ? err.message
+            : "Unable to reach the assistant. Restart the app with npm run dev and try again.";
       setMessages([
         ...next,
         {
           role: "assistant",
-          content:
-            err instanceof Error
-              ? err.message
-              : "Unable to reach the assistant. Start the API server and try again.",
+          content: message,
         },
       ]);
     } finally {
