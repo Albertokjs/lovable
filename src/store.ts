@@ -1,5 +1,6 @@
 export type Link = { id: string; name: string; url: string; color: string };
 export type Tab = { id: string; title: string; url: string };
+export type CustomWidget = { id: string; title: string; url: string };
 export type Profile = {
   id: string;
   name: string;
@@ -13,6 +14,7 @@ export type Profile = {
   activeTab: string;
   history: Tab[];
   widgets: string[];
+  customWidgets: CustomWidget[];
   snapshots: { id: string; name: string; tabs: Tab[] }[];
 };
 export const uid = () => crypto.randomUUID();
@@ -47,6 +49,7 @@ export function makeProfile(name: string, icon = "planet"): Profile {
     activeTab: tab.id,
     history: [],
     widgets: ["focus", "notes", "activity"],
+    customWidgets: [],
     snapshots: [],
   };
 }
@@ -96,7 +99,19 @@ export function readProfiles(): Profile[] {
           Array.isArray(p.snapshots),
       )
     )
-      return raw;
+      return raw.map((p) => ({
+        ...p,
+        customWidgets: Array.isArray(p.customWidgets)
+          ? p.customWidgets.filter(
+              (widget) =>
+                widget &&
+                typeof widget.id === "string" &&
+                typeof widget.title === "string" &&
+                typeof widget.url === "string" &&
+                resolveAddress(widget.url)?.startsWith("http"),
+            )
+          : [],
+      }));
   } catch {}
   return initialProfiles();
 }
@@ -115,3 +130,26 @@ export function resolveAddress(value: string) {
   if (/^[\w-]+(\.[\w-]+)+([/:?#].*)?$/.test(input)) return "https://" + input;
   return "https://www.google.com/search?q=" + encodeURIComponent(input);
 }
+
+export function embeddedAddress(value: string) {
+  try {
+    const url = new URL(value);
+    const host = url.hostname.toLowerCase().replace(/^www\./, "");
+    if (
+      host === "youtu.be" ||
+      host === "youtube.com" ||
+      host === "m.youtube.com"
+    ) {
+      const id =
+        host === "youtu.be"
+          ? url.pathname.split("/").filter(Boolean)[0]
+          : url.searchParams.get("v") ||
+            url.pathname.match(/^\/(?:embed|shorts|live)\/([^/?]+)/)?.[1];
+      if (id && /^[\w-]+$/.test(id)) {
+        return `https://www.youtube-nocookie.com/embed/${id}?rel=0`;
+      }
+    }
+  } catch {}
+  return value;
+}
+

@@ -39,6 +39,7 @@ import {
   LayoutGrid,
   Pin,
   GripVertical,
+  Pencil,
   Monitor,
   Eye,
   Upload,
@@ -51,6 +52,7 @@ import {
   Volume2,
 } from "lucide-react";
 import {
+  embeddedAddress,
   initialProfiles,
   makeProfile,
   presets,
@@ -94,6 +96,10 @@ function App() {
   const [dragged, setDragged] = useState("");
   const [newName, setNewName] = useState("");
   const [newUrl, setNewUrl] = useState("");
+  const [newWidgetName, setNewWidgetName] = useState("");
+  const [newWidgetUrl, setNewWidgetUrl] = useState("");
+  const [editingWidgetId, setEditingWidgetId] = useState("");
+  const [frameVersion, setFrameVersion] = useState(0);
   const [background, setBackground] = useState(() =>
     safeRead("orbital-background"),
   );
@@ -377,7 +383,15 @@ function App() {
                 ? navigate(previous.url)
                 : notify("No earlier page in this workspace");
             })}
-            {button(RotateCw, "Refresh workspace", () => setClock(new Date()))}
+            {button(
+              RotateCw,
+              tab.url.startsWith("http") ? "Reload page" : "Refresh dashboard",
+              () => {
+                if (tab.url.startsWith("http"))
+                  setFrameVersion((version) => version + 1);
+                else setClock(new Date());
+              },
+            )}
             {button(Home, "Go to dashboard", () =>
               navigate("orbital://newtab"),
             )}
@@ -761,7 +775,7 @@ function App() {
                           </span>
                         </div>
                       </>
-                    ) : (
+                    ) : id === "activity" ? (
                       <>
                         <div className="widget-heading">
                           <span>
@@ -807,6 +821,42 @@ function App() {
                           View browsing history <ArrowRight size={13} />
                         </button>
                       </>
+                    ) : (
+                      (() => {
+                        const custom = p.customWidgets.find(
+                          (widget) => widget.id === id,
+                        );
+                        if (!custom) return null;
+                        return (
+                          <>
+                            <div className="widget-heading">
+                              <span>
+                                <Globe size={16} /> {custom.title}
+                              </span>
+                              <button
+                                aria-label={`Edit ${custom.title}`}
+                                onClick={() => {
+                                  setEditingWidgetId(custom.id);
+                                  setNewWidgetName(custom.title);
+                                  setNewWidgetUrl(custom.url);
+                                  openPanel("widgets");
+                                }}
+                              >
+                                <SlidersHorizontal size={14} />
+                              </button>
+                            </div>
+                            <p className="custom-widget-url">
+                              {new URL(custom.url).hostname}
+                            </p>
+                            <button
+                              className="custom-widget-open"
+                              onClick={() => navigate(custom.url)}
+                            >
+                              Open website <ArrowUpRight size={14} />
+                            </button>
+                          </>
+                        );
+                      })()
                     )}
                   </article>
                 ))}
@@ -843,33 +893,27 @@ function App() {
             </footer>
           </div>
         ) : (
-          <section className="web-page">
-            <Globe size={45} />
-            <span className="eyebrow">READY TO EXPLORE</span>
-            <h1>{tab.title}</h1>
-            <p>
-              This web workspace opens external pages in your installed browser.
-              <br />
-              Your tabs, bookmarks, and session stay organised here.
-            </p>
-            <a
-              className="primary"
-              href={tab.url}
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              Open website <ExternalLink size={16} />
-            </a>
-            <button
-              className="subtle-button"
-              onClick={() => navigate("orbital://newtab")}
-            >
-              Back to your universe
-            </button>
-            <small>
-              Embedded browsing, split views and network blocking require the
-              desktop engine.
-            </small>
+          <section className="web-viewer">
+            <div className="web-viewer-bar">
+              <span>
+                <Globe size={14} /> {new URL(tab.url).hostname}
+              </span>
+              <a href={tab.url} target="_blank" rel="noopener noreferrer">
+                Open in browser <ExternalLink size={14} />
+              </a>
+            </div>
+            <iframe
+              key={`${tab.id}:${tab.url}:${frameVersion}`}
+              title={`Website: ${tab.title}`}
+              src={embeddedAddress(tab.url)}
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+              allowFullScreen
+              referrerPolicy="strict-origin-when-cross-origin"
+            />
+            <div className="web-viewer-note">
+              If the page is blank, the website may block embedding. Use “Open
+              in browser” to visit it directly.
+            </div>
           </section>
         )}
         <button
@@ -1329,22 +1373,100 @@ function App() {
             {panel === "widgets" && (
               <>
                 <p className="muted">
-                  Choose what belongs on your dashboard. Drag cards to rearrange
-                  them.
+                  Add website cards, choose what belongs on your dashboard, and
+                  drag cards to rearrange them.
                 </p>
+                <form
+                  className="custom-widget-form"
+                  onSubmit={(event) => {
+                    event.preventDefault();
+                    const url = resolveAddress(newWidgetUrl);
+                    if (!newWidgetName.trim() || !url?.startsWith("http")) {
+                      notify("Enter a widget name and a valid website address.");
+                      return;
+                    }
+                    const widget = {
+                      id: editingWidgetId || `custom-${uid()}`,
+                      title: newWidgetName.trim(),
+                      url,
+                    };
+                    update({
+                      customWidgets: editingWidgetId
+                        ? p.customWidgets.map((saved) =>
+                            saved.id === editingWidgetId ? widget : saved,
+                          )
+                        : [...p.customWidgets, widget],
+                      widgets: editingWidgetId
+                        ? p.widgets
+                        : [...p.widgets, widget.id],
+                    });
+                    setNewWidgetName("");
+                    setNewWidgetUrl("");
+                    setEditingWidgetId("");
+                    notify(
+                      editingWidgetId
+                        ? "Website widget updated"
+                        : "Website widget added to your dashboard",
+                    );
+                  }}
+                >
+                  <input
+                    aria-label="Widget name"
+                    placeholder="Widget name, e.g. YouTube"
+                    value={newWidgetName}
+                    onChange={(event) => setNewWidgetName(event.target.value)}
+                    maxLength={32}
+                  />
+                  <input
+                    aria-label="Widget website address"
+                    placeholder="Website address, e.g. youtube.com"
+                    value={newWidgetUrl}
+                    onChange={(event) => setNewWidgetUrl(event.target.value)}
+                  />
+                  <button className="primary" type="submit">
+                    {editingWidgetId ? <Check size={14} /> : <Plus size={14} />}
+                    {editingWidgetId ? "Save website widget" : "Add website widget"}
+                  </button>
+                  {editingWidgetId && (
+                    <button
+                      className="small-button"
+                      type="button"
+                      onClick={() => {
+                        setEditingWidgetId("");
+                        setNewWidgetName("");
+                        setNewWidgetUrl("");
+                      }}
+                    >
+                      Cancel edit
+                    </button>
+                  )}
+                </form>
                 {[
-                  [
-                    "focus",
-                    "Focus flow",
-                    "A quiet space to do your best work.",
-                  ],
-                  ["notes", "Quick notes", "Keep your ideas within reach."],
-                  [
-                    "activity",
-                    "Recently explored",
-                    "Find your way back to a discovery.",
-                  ],
-                ].map(([id, name, desc]) => (
+                  {
+                    id: "focus",
+                    name: "Focus flow",
+                    desc: "A quiet space to do your best work.",
+                    custom: false,
+                  },
+                  {
+                    id: "notes",
+                    name: "Quick notes",
+                    desc: "Keep your ideas within reach.",
+                    custom: false,
+                  },
+                  {
+                    id: "activity",
+                    name: "Recently explored",
+                    desc: "Find your way back to a discovery.",
+                    custom: false,
+                  },
+                  ...p.customWidgets.map((widget) => ({
+                    id: widget.id,
+                    name: widget.title,
+                    desc: widget.url,
+                    custom: true,
+                  })),
+                ].map(({ id, name, desc, custom }) => (
                   <div className="setting-row" key={id}>
                     <div>
                       {name}
@@ -1378,6 +1500,27 @@ function App() {
                           ];
                           update({ widgets: order });
                         }
+                      })}
+                    {custom &&
+                      button(Pencil, "Edit " + name, () => {
+                        const widget = p.customWidgets.find(
+                          (saved) => saved.id === id,
+                        );
+                        if (!widget) return;
+                        setEditingWidgetId(widget.id);
+                        setNewWidgetName(widget.title);
+                        setNewWidgetUrl(widget.url);
+                      })}
+                    {custom &&
+                      button(Trash2, "Remove " + name, () => {
+                        update({
+                          widgets: p.widgets.filter(
+                            (widgetId) => widgetId !== id,
+                          ),
+                          customWidgets: p.customWidgets.filter(
+                            (widget) => widget.id !== id,
+                          ),
+                        });
                       })}
                   </div>
                 ))}
@@ -1621,6 +1764,38 @@ function App() {
               )
                 throw Error();
               const base = makeProfile(item.name);
+              const widgetIds = new Map<string, string>();
+              const customWidgets = Array.isArray(item.customWidgets)
+                ? item.customWidgets
+                    .flatMap((widget) => {
+                      const url =
+                        widget && typeof widget.url === "string"
+                          ? resolveAddress(widget.url)
+                          : null;
+                      if (
+                        !widget ||
+                        typeof widget.id !== "string" ||
+                        typeof widget.title !== "string" ||
+                        !url?.startsWith("http")
+                      )
+                        return [];
+                      const id = uid();
+                      widgetIds.set(widget.id, id);
+                      return [{ ...widget, id, url }];
+                    })
+                : [];
+              const widgets = Array.isArray(item.widgets)
+                ? item.widgets
+                    .map((id) => widgetIds.get(id) || id)
+                    .filter((id) =>
+                      [
+                        "focus",
+                        "notes",
+                        "activity",
+                        ...customWidgets.map((widget) => widget.id),
+                      ].includes(id),
+                    )
+                : base.widgets;
               return {
                 ...base,
                 notes: typeof item.notes === "string" ? item.notes : "",
@@ -1631,6 +1806,8 @@ function App() {
                   ? item.theme
                   : base.theme,
                 motion: !!item.motion,
+                widgets,
+                customWidgets,
                 links: item.links.map((l) => ({ ...l, id: uid() })),
                 tabs: item.tabs.map((t) => ({ ...t, id: uid() })),
               };
@@ -1665,3 +1842,4 @@ createRoot(document.getElementById("root")!).render(
     <App />
   </React.StrictMode>,
 );
+

@@ -15,6 +15,7 @@ app.use(
         fontSrc: ["'self'", "https://fonts.gstatic.com"],
         imgSrc: ["'self'", "data:", "blob:"],
         connectSrc: ["'self'"],
+        frameSrc: ["'self'", "https:", "http:"],
         objectSrc: ["'none'"],
         frameAncestors: ["'none'"],
       },
@@ -139,3 +140,4 @@ app.use((err, req, res, next) => {
 app.listen(Number(process.env.PORT) || 3001, "0.0.0.0", () =>
   console.log("Orbital server ready on port " + (process.env.PORT || 3001)),
 );
+

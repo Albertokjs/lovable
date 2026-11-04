@@ -1,6 +1,6 @@
 # Orbital
 
-A thoughtfully built, galaxy-inspired browser workspace foundation. React 19, TypeScript, Vite, Express, Lucide icons. No website builders or Lovable.
+A thoughtfully built, galaxy-inspired browser workspace. React 19, TypeScript, Vite, Express, Lucide icons.
 
 ## Run
 
@@ -21,10 +21,10 @@ Open http://localhost:5173. Add a server-side `OPENAI_API_KEY` to `.env` for rea
 - Personal, Study and Gaming profiles, plus unlimited locally created workspaces.
 - Independent bookmarks, notes, themes, motion settings, widget order, tabs and saved sessions.
 - Tab creation, switching, closing, recently closed restoration, URL/search resolution and local session restoration.
-- External website launch through the host browser, with an explicit capability explanation.
+- In-app website views for pages that allow embedding, including YouTube video URLs through YouTube's privacy-enhanced embed player. Other sites can be opened directly in the host browser.
 - Searchable bookmarks and local navigation history; history clearing.
 - Six live theme presets, custom accent colors, reduced-motion support and local wallpaper upload.
-- Pomodoro and break timer; persistent notes; dashboard widget visibility and drag ordering, with keyboard-accessible reorder buttons.
+- Pomodoro and break timer; persistent notes; dashboard widget visibility and drag ordering, with keyboard-accessible reorder buttons. Add custom website shortcut widgets to each workspace.
 - Workspace snapshot saving/restoration and JSON export/import. Imports add workspaces and validate URLs.
 - Command palette (Ctrl/Cmd+K), focus mode (Ctrl/Cmd+Shift+F), Escape to exit overlays.
 - Real server-side AI API, request limits, timeouts, input validation, provider failure states, and explicit opt-in tab metadata sharing. Messages are memory-only; page text is never scraped.
@@ -32,7 +32,7 @@ Open http://localhost:5173. Add a server-side `OPENAI_API_KEY` to `.env` for rea
 
 ## Capability boundaries
 
-This is a web workspace, not yet a standalone browser engine. Cross-origin websites generally refuse iframe embedding; Orbital opens them in the installed browser. A workspace tab records a destination, not a live web renderer. History covers navigation initiated inside Orbital only. Refresh updates the dashboard clock, not external pages. Host-browser downloads, private browsing, tracker blocking, pop-up blocking, per-site permissions, browser-wide history and live page summaries require an extension or desktop application. No fake tracker metrics or protection claims are displayed.
+Orbital renders external pages in embedded frames when the destination permits it. Websites can block embedded views or limit sign-in, downloads, pop-ups, and other browser features; use “Open in browser” for those pages. YouTube video, Shorts, and live URLs are converted to YouTube's privacy-enhanced embed player. This web app is not a standalone browser engine. Host-browser downloads, private browsing, tracker blocking, pop-up blocking, per-site permissions, browser-wide history and live page summaries require an extension or desktop application. No fake tracker metrics or protection claims are displayed.
 
 There is no account sync, full-page split view, tab grouping/pinning, marketplace backend, remote weather, uploaded video wallpaper, sounds, automatic tab organisation, website blocking, or autonomous AI action execution in this foundation. Custom profiles are not yet isolated OS browser sessions. Notes and preferences are unencrypted localStorage; do not store secrets. A blocked/full storage backend reports an error, and workspace export provides a backup. Images are shared on the device rather than profile-specific. Focus timer is in memory and pauses on profile switching.
 
@@ -65,3 +65,4 @@ Deploy the Node service behind HTTPS, with `PORT`, `APP_ORIGIN`, and server-only
 5. **Product infrastructure:** authenticated encrypted sync, conflict resolution, theme sharing/moderation, automatic updates, signed releases, accessibility audit, end-to-end browser-engine security testing and performance budgets.
 
 This release is the working web foundation, not a claim of parity with a mature desktop browser.
+
